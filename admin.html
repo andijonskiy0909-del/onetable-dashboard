@@ -1,0 +1,615 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>OneTable — Admin Panel</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<style>
+  :root {
+    --bg: #0a0a0f;
+    --surface: #13131a;
+    --surface2: #1c1c27;
+    --border: #2a2a38;
+    --accent: #f5a623;
+    --accent2: #e85d5d;
+    --green: #2ecc71;
+    --blue: #4e9eff;
+    --text: #e8e8f0;
+    --muted: #666680;
+    --font-head: 'Syne', sans-serif;
+    --font-body: 'DM Sans', sans-serif;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font-body);
+    min-height: 100vh;
+  }
+
+  /* ── Login ── */
+  #loginScreen {
+    display: flex; align-items: center; justify-content: center;
+    min-height: 100vh;
+    background: radial-gradient(ellipse at 30% 50%, #1a1020 0%, var(--bg) 60%);
+  }
+  .login-box {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 48px 40px;
+    width: 100%;
+    max-width: 400px;
+    text-align: center;
+  }
+  .login-logo { font-family: var(--font-head); font-size: 2rem; font-weight: 800; color: var(--accent); margin-bottom: 8px; }
+  .login-sub { color: var(--muted); font-size: 0.85rem; margin-bottom: 32px; }
+  .field { margin-bottom: 16px; text-align: left; }
+  .field label { display: block; font-size: 0.78rem; color: var(--muted); margin-bottom: 6px; text-transform: uppercase; letter-spacing: .05em; }
+  .field input {
+    width: 100%; padding: 12px 16px;
+    background: var(--surface2); border: 1px solid var(--border);
+    border-radius: 10px; color: var(--text);
+    font-family: var(--font-body); font-size: 0.95rem;
+    outline: none; transition: border-color .2s;
+  }
+  .field input:focus { border-color: var(--accent); }
+  .btn-login {
+    width: 100%; padding: 14px;
+    background: var(--accent); color: #000;
+    font-family: var(--font-head); font-size: 1rem; font-weight: 700;
+    border: none; border-radius: 12px; cursor: pointer;
+    margin-top: 8px; transition: opacity .2s;
+  }
+  .btn-login:hover { opacity: .85; }
+  .login-err { color: var(--accent2); font-size: 0.85rem; margin-top: 12px; }
+
+  /* ── App ── */
+  #app { display: none; }
+  .sidebar {
+    position: fixed; top: 0; left: 0; bottom: 0; width: 220px;
+    background: var(--surface);
+    border-right: 1px solid var(--border);
+    padding: 28px 0;
+    display: flex; flex-direction: column;
+    z-index: 100;
+  }
+  .logo { font-family: var(--font-head); font-weight: 800; font-size: 1.4rem; color: var(--accent); padding: 0 24px 28px; border-bottom: 1px solid var(--border); margin-bottom: 20px; }
+  .logo span { font-size: 0.7rem; color: var(--muted); display: block; font-weight: 400; margin-top: 2px; }
+  .nav-item {
+    display: flex; align-items: center; gap: 12px;
+    padding: 12px 24px; cursor: pointer;
+    color: var(--muted); font-size: 0.9rem;
+    transition: all .2s; border-left: 3px solid transparent;
+  }
+  .nav-item:hover { color: var(--text); background: var(--surface2); }
+  .nav-item.active { color: var(--accent); border-left-color: var(--accent); background: rgba(245,166,35,.07); }
+  .nav-icon { font-size: 1.1rem; width: 20px; text-align: center; }
+  .sidebar-bottom { margin-top: auto; padding: 20px 24px; border-top: 1px solid var(--border); }
+  .logout-btn { width: 100%; padding: 10px; background: transparent; border: 1px solid var(--border); border-radius: 8px; color: var(--muted); cursor: pointer; font-family: var(--font-body); transition: all .2s; }
+  .logout-btn:hover { color: var(--accent2); border-color: var(--accent2); }
+
+  .main { margin-left: 220px; padding: 32px 36px; }
+  .page { display: none; }
+  .page.active { display: block; }
+  .page-title { font-family: var(--font-head); font-size: 1.8rem; font-weight: 700; margin-bottom: 6px; }
+  .page-sub { color: var(--muted); font-size: 0.9rem; margin-bottom: 28px; }
+
+  /* ── Stats cards ── */
+  .stats-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 16px; margin-bottom: 32px; }
+  .stat-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px; padding: 20px 22px;
+    position: relative; overflow: hidden;
+    transition: border-color .2s;
+  }
+  .stat-card:hover { border-color: var(--accent); }
+  .stat-card.highlight { border-color: rgba(245,166,35,.4); background: rgba(245,166,35,.04); }
+  .stat-label { font-size: 0.75rem; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; margin-bottom: 10px; }
+  .stat-value { font-family: var(--font-head); font-size: 2rem; font-weight: 800; line-height: 1; }
+  .stat-value.green { color: var(--green); }
+  .stat-value.amber { color: var(--accent); }
+  .stat-value.blue { color: var(--blue); }
+  .stat-value.red { color: var(--accent2); }
+  .stat-sub { font-size: 0.75rem; color: var(--muted); margin-top: 6px; }
+
+  /* ── Table ── */
+  .table-card { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; overflow: hidden; }
+  .table-header { padding: 20px 24px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+  .table-title { font-family: var(--font-head); font-size: 1rem; font-weight: 700; }
+  .filters { display: flex; gap: 8px; flex-wrap: wrap; }
+  .filter-input {
+    padding: 8px 12px; background: var(--surface2); border: 1px solid var(--border);
+    border-radius: 8px; color: var(--text); font-size: 0.85rem;
+    font-family: var(--font-body); outline: none;
+  }
+  .filter-input:focus { border-color: var(--accent); }
+  table { width: 100%; border-collapse: collapse; }
+  th { padding: 12px 16px; text-align: left; font-size: 0.72rem; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; border-bottom: 1px solid var(--border); }
+  td { padding: 14px 16px; font-size: 0.88rem; border-bottom: 1px solid rgba(42,42,56,.5); }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: rgba(255,255,255,.02); }
+  .badge {
+    display: inline-block; padding: 3px 10px; border-radius: 20px;
+    font-size: 0.73rem; font-weight: 500;
+  }
+  .badge.confirmed { background: rgba(46,204,113,.15); color: var(--green); }
+  .badge.pending { background: rgba(245,166,35,.15); color: var(--accent); }
+  .badge.cancelled { background: rgba(232,93,93,.15); color: var(--accent2); }
+  .badge.premium { background: rgba(245,166,35,.2); color: var(--accent); }
+  .fee-chip { color: var(--green); font-weight: 600; font-size: 0.82rem; }
+
+  /* ── Map ── */
+  #map { height: 480px; border-radius: 16px; border: 1px solid var(--border); margin-bottom: 24px; }
+  .map-legend { display: flex; gap: 20px; margin-bottom: 16px; flex-wrap: wrap; }
+  .legend-item { display: flex; align-items: center; gap: 8px; font-size: 0.82rem; color: var(--muted); }
+  .legend-dot { width: 12px; height: 12px; border-radius: 50%; }
+
+  /* ── Pagination ── */
+  .pagination { display: flex; gap: 8px; align-items: center; padding: 16px 24px; justify-content: flex-end; }
+  .page-btn { padding: 6px 14px; background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; color: var(--text); cursor: pointer; font-size: 0.85rem; }
+  .page-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .page-btn.active { background: var(--accent); color: #000; border-color: var(--accent); }
+  .page-info { color: var(--muted); font-size: 0.82rem; }
+
+  /* ── Loading ── */
+  .spinner { text-align: center; padding: 60px; color: var(--muted); font-size: 0.9rem; }
+  .spin { display: inline-block; width: 32px; height: 32px; border: 3px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.7s linear infinite; margin-bottom: 12px; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ── Chart ── */
+  .chart-wrap { padding: 20px 24px; }
+  .bar-chart { display: flex; align-items: flex-end; gap: 8px; height: 100px; }
+  .bar-col { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; }
+  .bar { width: 100%; background: var(--accent); border-radius: 4px 4px 0 0; min-height: 4px; transition: height .4s ease; opacity: .85; }
+  .bar-label { font-size: 0.68rem; color: var(--muted); }
+
+  .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 24px; }
+  @media(max-width: 900px) { .two-col { grid-template-columns: 1fr; } .sidebar { width: 60px; } .main { margin-left: 60px; padding: 20px; } .nav-text { display: none; } .logo span { display: none; } }
+</style>
+</head>
+<body>
+
+<!-- LOGIN -->
+<div id="loginScreen">
+  <div class="login-box">
+    <div class="login-logo">🍽 OneTable</div>
+    <div class="login-sub">Super Admin Panel</div>
+    <div class="field">
+      <label>Email</label>
+      <input type="email" id="loginEmail" placeholder="admin@onetable.uz">
+    </div>
+    <div class="field">
+      <label>Parol</label>
+      <input type="password" id="loginPass" placeholder="••••••••" onkeydown="if(event.key==='Enter')doLogin()">
+    </div>
+    <button class="btn-login" onclick="doLogin()">Kirish</button>
+    <div class="login-err" id="loginErr"></div>
+  </div>
+</div>
+
+<!-- APP -->
+<div id="app">
+  <div class="sidebar">
+    <div class="logo">OneTable <span>Admin Panel</span></div>
+    <div class="nav-item active" onclick="showPage('dashboard')">
+      <span class="nav-icon">📊</span><span class="nav-text">Dashboard</span>
+    </div>
+    <div class="nav-item" onclick="showPage('reservations')">
+      <span class="nav-icon">📋</span><span class="nav-text">Bronlar</span>
+    </div>
+    <div class="nav-item" onclick="showPage('restaurants')">
+      <span class="nav-icon">🏪</span><span class="nav-text">Restoranlar</span>
+    </div>
+    <div class="nav-item" onclick="showPage('earnings')">
+      <span class="nav-icon">💰</span><span class="nav-text">Daromad</span>
+    </div>
+    <div class="nav-item" onclick="showPage('map')">
+      <span class="nav-icon">🗺️</span><span class="nav-text">Xarita</span>
+    </div>
+    <div class="sidebar-bottom">
+      <button class="logout-btn" onclick="logout()">Chiqish</button>
+    </div>
+  </div>
+
+  <div class="main">
+
+    <!-- DASHBOARD -->
+    <div class="page active" id="page-dashboard">
+      <div class="page-title">Dashboard</div>
+      <div class="page-sub" id="dashDate">Yuklanmoqda...</div>
+      <div class="stats-grid" id="statsGrid">
+        <div class="spinner"><div class="spin"></div><br>Yuklanmoqda...</div>
+      </div>
+      <div class="two-col">
+        <div class="table-card">
+          <div class="table-header"><div class="table-title">📈 Haftalik bronlar</div></div>
+          <div class="chart-wrap"><div class="bar-chart" id="weekChart"></div></div>
+        </div>
+        <div class="table-card">
+          <div class="table-header"><div class="table-title">🏆 Top restoranlar</div></div>
+          <table>
+            <thead><tr><th>Restoran</th><th>Bron</th><th>Daromad</th></tr></thead>
+            <tbody id="topTable"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- BRONLAR -->
+    <div class="page" id="page-reservations">
+      <div class="page-title">Barcha Bronlar</div>
+      <div class="page-sub">Platformadagi barcha bronlarni ko'rish</div>
+      <div class="table-card">
+        <div class="table-header">
+          <div class="table-title">Bronlar ro'yxati</div>
+          <div class="filters">
+            <input class="filter-input" type="date" id="filterDate" onchange="loadReservations()">
+            <select class="filter-input" id="filterStatus" onchange="loadReservations()">
+              <option value="">Barcha status</option>
+              <option value="pending">Kutilmoqda</option>
+              <option value="confirmed">Tasdiqlangan</option>
+              <option value="cancelled">Bekor</option>
+            </select>
+          </div>
+        </div>
+        <div id="reservTable">
+          <div class="spinner"><div class="spin"></div><br>Yuklanmoqda...</div>
+        </div>
+        <div class="pagination" id="reservPagination"></div>
+      </div>
+    </div>
+
+    <!-- RESTORANLAR -->
+    <div class="page" id="page-restaurants">
+      <div class="page-title">Restoranlar</div>
+      <div class="page-sub">Barcha ro'yxatdan o'tgan restoranlar</div>
+      <div class="table-card">
+        <div class="table-header"><div class="table-title">Restoranlar ro'yxati</div></div>
+        <div id="restTable"><div class="spinner"><div class="spin"></div><br>Yuklanmoqda...</div></div>
+      </div>
+    </div>
+
+    <!-- DAROMAD -->
+    <div class="page" id="page-earnings">
+      <div class="page-title">Daromad Hisobi</div>
+      <div class="page-sub">Har bir tasdiqlangan bron uchun 5,000 so'm</div>
+      <div class="table-card" style="margin-bottom:24px">
+        <div class="table-header">
+          <div class="table-title">Sana bo'yicha filtr</div>
+          <div class="filters">
+            <input class="filter-input" type="date" id="earnFrom" placeholder="Dan">
+            <input class="filter-input" type="date" id="earnTo" placeholder="Gacha">
+            <button class="page-btn" onclick="loadEarnings()">Ko'rish</button>
+          </div>
+        </div>
+      </div>
+      <div class="stats-grid" id="earningStats"></div>
+      <div class="table-card">
+        <div class="table-header"><div class="table-title">Restoran bo'yicha daromad</div></div>
+        <div id="earnTable"><div class="spinner"><div class="spin"></div><br>Yuklanmoqda...</div></div>
+      </div>
+    </div>
+
+    <!-- MAP -->
+    <div class="page" id="page-map">
+      <div class="page-title">Xarita</div>
+      <div class="page-sub">Barcha restoranlarning joylashuvi</div>
+      <div class="map-legend">
+        <div class="legend-item"><div class="legend-dot" style="background:#f5a623"></div> Premium restoran</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#4e9eff"></div> Oddiy restoran</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#666"></div> Koordinatsiz</div>
+      </div>
+      <div id="map"></div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+const API = 'https://onetableuz-production.up.railway.app/api';
+let token = localStorage.getItem('admin_token');
+let currentPage = 1;
+let mapInstance = null;
+
+// ── Auth ──────────────────────────────────────────────────────
+async function doLogin() {
+  const email = document.getElementById('loginEmail').value;
+  const pass = document.getElementById('loginPass').value;
+  const errEl = document.getElementById('loginErr');
+  errEl.textContent = '';
+
+  try {
+    const r = await fetch(`${API}/admin/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password: pass })
+    });
+    const data = await r.json();
+    if (!r.ok) { errEl.textContent = data.error || 'Xato'; return; }
+    token = data.token;
+    localStorage.setItem('admin_token', token);
+    showApp();
+  } catch (e) {
+    errEl.textContent = 'Server bilan bog\'lanib bo\'lmadi';
+  }
+}
+
+function logout() {
+  localStorage.removeItem('admin_token');
+  token = null;
+  document.getElementById('app').style.display = 'none';
+  document.getElementById('loginScreen').style.display = 'flex';
+}
+
+function authHeaders() {
+  return { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' };
+}
+
+// ── App ───────────────────────────────────────────────────────
+function showApp() {
+  document.getElementById('loginScreen').style.display = 'none';
+  document.getElementById('app').style.display = 'block';
+  loadDashboard();
+}
+
+function showPage(name) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  document.getElementById(`page-${name}`).classList.add('active');
+  event.currentTarget.classList.add('active');
+
+  if (name === 'reservations') loadReservations();
+  if (name === 'restaurants') loadRestaurants();
+  if (name === 'earnings') loadEarnings();
+  if (name === 'map') loadMap();
+}
+
+// ── Dashboard ─────────────────────────────────────────────────
+async function loadDashboard() {
+  try {
+    const r = await fetch(`${API}/admin/stats`, { headers: authHeaders() });
+    if (r.status === 401) { logout(); return; }
+    const d = await r.json();
+
+    const now = new Date();
+    document.getElementById('dashDate').textContent =
+      now.toLocaleDateString('uz-UZ', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+
+    document.getElementById('statsGrid').innerHTML = `
+      <div class="stat-card highlight">
+        <div class="stat-label">💰 Platform daromadi</div>
+        <div class="stat-value amber">${(d.platformEarnings/1000).toFixed(0)}K</div>
+        <div class="stat-sub">so'm · ${d.confirmedReservations} tasdiqlangan bron × 5,000</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">📋 Jami bronlar</div>
+        <div class="stat-value">${d.totalReservations}</div>
+        <div class="stat-sub">bugun: ${d.todayReservations}</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">✅ Tasdiqlangan</div>
+        <div class="stat-value green">${d.confirmedReservations}</div>
+        <div class="stat-sub">kutilmoqda: ${d.pendingReservations}</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">🏪 Restoranlar</div>
+        <div class="stat-value blue">${d.restaurants}</div>
+        <div class="stat-sub">premium: ${d.premiumRestaurants}</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">👤 Foydalanuvchilar</div>
+        <div class="stat-value">${d.totalUsers}</div>
+        <div class="stat-sub">Telegram orqali</div>
+      </div>
+    `;
+
+    // Haftalik chart
+    if (d.weeklyStats?.length) {
+      const max = Math.max(...d.weeklyStats.map(s => parseInt(s.total) || 0), 1);
+      document.getElementById('weekChart').innerHTML = d.weeklyStats.map(s => {
+        const h = Math.round((parseInt(s.total) / max) * 90);
+        const day = new Date(s.date).toLocaleDateString('uz-UZ', { weekday: 'short' });
+        return `<div class="bar-col">
+          <div class="bar" style="height:${h}px" title="${s.total} bron"></div>
+          <div class="bar-label">${day}</div>
+        </div>`;
+      }).join('');
+    }
+
+    // Top restoranlar
+    document.getElementById('topTable').innerHTML = (d.topRestaurants || []).slice(0, 6).map((r, i) => `
+      <tr>
+        <td>${i + 1}. ${r.name} ${r.is_premium ? '<span class="badge premium">PRO</span>' : ''}</td>
+        <td>${r.total_bookings}</td>
+        <td class="fee-chip">${Number(r.platform_fee || 0).toLocaleString()} so'm</td>
+      </tr>
+    `).join('');
+  } catch (e) {
+    console.error(e);
+  }
+}
+
+// ── Bronlar ───────────────────────────────────────────────────
+async function loadReservations(page = 1) {
+  currentPage = page;
+  const date = document.getElementById('filterDate').value;
+  const status = document.getElementById('filterStatus').value;
+  let url = `${API}/admin/reservations?page=${page}&limit=20`;
+  if (date) url += `&date=${date}`;
+  if (status) url += `&status=${status}`;
+
+  document.getElementById('reservTable').innerHTML =
+    '<div class="spinner"><div class="spin"></div><br>Yuklanmoqda...</div>';
+
+  const r = await fetch(url, { headers: authHeaders() });
+  const d = await r.json();
+
+  if (!d.reservations?.length) {
+    document.getElementById('reservTable').innerHTML =
+      '<div class="spinner">Bronlar topilmadi</div>';
+    document.getElementById('reservPagination').innerHTML = '';
+    return;
+  }
+
+  document.getElementById('reservTable').innerHTML = `
+    <table>
+      <thead><tr>
+        <th>#</th><th>Restoran</th><th>Mijoz</th>
+        <th>Sana / Vaqt</th><th>Mehmon</th>
+        <th>Status</th><th>Platforma to'lovi</th>
+      </tr></thead>
+      <tbody>
+        ${d.reservations.map(r => `
+          <tr>
+            <td style="color:var(--muted)">${r.id}</td>
+            <td><b>${r.restaurant_name}</b></td>
+            <td>${r.first_name} ${r.last_name || ''}</td>
+            <td>${r.date} <span style="color:var(--muted)">${r.time}</span></td>
+            <td>${r.guests} kishi</td>
+            <td><span class="badge ${r.status}">${statusText(r.status)}</span></td>
+            <td>${r.status === 'confirmed' ? '<span class="fee-chip">+5,000 so\'m</span>' : '<span style="color:var(--muted)">—</span>'}</td>
+          </tr>
+        `).join('')}
+      </tbody>
+    </table>
+  `;
+
+  // Pagination
+  const total = d.totalPages || 1;
+  let pag = `<span class="page-info">${d.total} ta bron</span>`;
+  if (page > 1) pag += `<button class="page-btn" onclick="loadReservations(${page-1})">← Oldingi</button>`;
+  pag += `<button class="page-btn active">${page}</button>`;
+  if (page < total) pag += `<button class="page-btn" onclick="loadReservations(${page+1})">Keyingi →</button>`;
+  document.getElementById('reservPagination').innerHTML = pag;
+}
+
+// ── Restoranlar ───────────────────────────────────────────────
+async function loadRestaurants() {
+  const r = await fetch(`${API}/admin/restaurants`, { headers: authHeaders() });
+  const list = await r.json();
+
+  document.getElementById('restTable').innerHTML = `
+    <table>
+      <thead><tr>
+        <th>#</th><th>Nom</th><th>Manzil</th>
+        <th>Egasi</th><th>Bronlar</th><th>Daromad</th><th>Status</th>
+      </tr></thead>
+      <tbody>
+        ${list.map(r => `
+          <tr>
+            <td style="color:var(--muted)">${r.id}</td>
+            <td><b>${r.name}</b> ${r.is_premium ? '<span class="badge premium">PRO</span>' : ''}</td>
+            <td style="color:var(--muted);font-size:.82rem">${r.address || '—'}</td>
+            <td style="font-size:.82rem">${r.owner_email || '—'}</td>
+            <td>${r.total_bookings}</td>
+            <td class="fee-chip">${Number(r.platform_earnings || 0).toLocaleString()} so'm</td>
+            <td><span class="badge ${r.status === 'approved' ? 'confirmed' : 'cancelled'}">${r.status}</span></td>
+          </tr>
+        `).join('')}
+      </tbody>
+    </table>
+  `;
+}
+
+// ── Daromad ───────────────────────────────────────────────────
+async function loadEarnings() {
+  const from = document.getElementById('earnFrom').value;
+  const to = document.getElementById('earnTo').value;
+  let url = `${API}/admin/earnings`;
+  if (from || to) url += `?from=${from}&to=${to}`;
+
+  document.getElementById('earnTable').innerHTML =
+    '<div class="spinner"><div class="spin"></div><br>Yuklanmoqda...</div>';
+
+  const r = await fetch(url, { headers: authHeaders() });
+  const d = await r.json();
+
+  document.getElementById('earningStats').innerHTML = `
+    <div class="stat-card highlight">
+      <div class="stat-label">💰 Jami platform daromadi</div>
+      <div class="stat-value amber">${d.totalEarnings.toLocaleString()}</div>
+      <div class="stat-sub">so'm</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">📋 Har bir bron uchun</div>
+      <div class="stat-value green">${d.platformFee.toLocaleString()}</div>
+      <div class="stat-sub">so'm</div>
+    </div>
+  `;
+
+  document.getElementById('earnTable').innerHTML = `
+    <table>
+      <thead><tr>
+        <th>Restoran</th>
+        <th>Tasdiqlangan</th><th>Kutilmoqda</th><th>Bekor</th>
+        <th>Platform daromadi</th>
+      </tr></thead>
+      <tbody>
+        ${d.restaurants.map(r => `
+          <tr>
+            <td><b>${r.name}</b> ${r.is_premium ? '<span class="badge premium">PRO</span>' : ''}</td>
+            <td style="color:var(--green)">${r.confirmed_count}</td>
+            <td style="color:var(--accent)">${r.pending_count}</td>
+            <td style="color:var(--accent2)">${r.cancelled_count}</td>
+            <td class="fee-chip">${Number(r.earnings || 0).toLocaleString()} so'm</td>
+          </tr>
+        `).join('')}
+      </tbody>
+    </table>
+  `;
+}
+
+// ── Map ───────────────────────────────────────────────────────
+async function loadMap() {
+  const r = await fetch(`${API}/admin/restaurants`, { headers: authHeaders() });
+  const list = await r.json();
+
+  if (mapInstance) { mapInstance.remove(); mapInstance = null; }
+
+  mapInstance = L.map('map').setView([41.2995, 69.2401], 12);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '© OpenStreetMap'
+  }).addTo(mapInstance);
+
+  const withCoords = list.filter(r => r.latitude && r.longitude);
+
+  withCoords.forEach(r => {
+    const color = r.is_premium ? '#f5a623' : '#4e9eff';
+    const icon = L.divIcon({
+      html: `<div style="background:${color};width:14px;height:14px;border-radius:50%;border:2px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,.4)"></div>`,
+      className: '', iconSize: [14, 14]
+    });
+
+    L.marker([r.latitude, r.longitude], { icon })
+      .addTo(mapInstance)
+      .bindPopup(`
+        <b>${r.name}</b>${r.is_premium ? ' ⭐' : ''}<br>
+        📍 ${r.address || '—'}<br>
+        📋 ${r.total_bookings} bron<br>
+        💰 ${Number(r.platform_earnings || 0).toLocaleString()} so'm
+      `);
+  });
+
+  if (withCoords.length === 0) {
+    document.getElementById('map').insertAdjacentHTML('afterend',
+      '<p style="color:var(--muted);text-align:center;margin-top:12px">⚠️ Hali koordinatalar kiritilmagan. Restoran egalariga latitude/longitude qo\'shish kerak.</p>'
+    );
+  }
+}
+
+// ── Utils ─────────────────────────────────────────────────────
+function statusText(s) {
+  return { pending: 'Kutilmoqda', confirmed: 'Tasdiqlangan', cancelled: 'Bekor' }[s] || s;
+}
+
+// ── Init ──────────────────────────────────────────────────────
+if (token) showApp();
+</script>
+</body>
+</html>
